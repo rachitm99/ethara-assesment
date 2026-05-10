@@ -177,3 +177,17 @@ export async function getProjectDetail(projectId: string, userId: string) {
     tasks: visibleTasks,
   };
 }
+
+export async function getAllUsers() {
+  const allUsers = await db.query.user.findMany({
+    orderBy: [desc(authSchema.user.createdAt)],
+  });
+
+  return allUsers.map((user) => ({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    image: user.image,
+  }));
+}

@@ -51,6 +51,15 @@ const removeMemberSchema = z.object({
   userId: z.string().min(1),
 });
 
+const updateGlobalUserRoleSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(["admin", "member"]),
+});
+
+const removeGlobalUserSchema = z.object({
+  userId: z.string().min(1),
+});
+
 const updateTaskSchema = z.object({
   taskId: z.string().min(1),
   status: z.enum(["todo", "in_progress", "done"]),
@@ -331,5 +340,69 @@ export async function updateTaskStatusAction(formData: FormData) {
     .where(eq(tasks.id, parsed.taskId));
 
   revalidatePath(`/projects/${task.projectId}`);
+  revalidatePath("/dashboard");
+}
+
+export async function updateGlobalUserRoleAction(formData: FormData) {
+  const session = await requireCurrentSession();
+  
+  // Only global admins can manage user roles
+  if (session.user.role !== "admin") {
+    throw new Error("Only admins can manage user roles.");
+  }
+
+  const parsed = updateGlobalUserRoleSchema.parse({
+    userId: formData.get("userId"),
+    role: formData.get("role"),
+  });
+
+  if (parsed.userId === session.user.id) {
+    throw new Error("You cannot change your own role.");
+  }
+
+  const targetUser = await db.query.user.findFirst({
+    where: eq(authSchema.user.id, parsed.userId),
+  });
+
+  if (!targetUser) {
+    throw new Error("User not found.");
+  }
+
+  await db
+    .update(authSchema.user)
+    .set({ role: parsed.role })
+    .where(eq(authSchema.user.id, parsed.userId));
+
+  revalidatePath("/dashboard");
+}
+
+export async function removeGlobalUserAction(formData: FormData) {
+  const session = await requireCurrentSession();
+  
+  // Only global admins can remove users
+  if (session.user.role !== "admin") {
+    throw new Error("Only admins can remove users.");
+  }
+
+  const parsed = removeGlobalUserSchema.parse({
+    userId: formData.get("userId"),
+  });
+
+  if (parsed.userId === session.user.id) {
+    throw new Error("You cannot remove yourself.");
+  }
+
+  // Get all admins in the system
+  const allAdmins = await db.query.user.findMany({
+    where: eq(authSchema.user.role, "admin"),
+  });
+
+  if (allAdmins.length <= 1) {
+    throw new Error("System must have at least one admin.");
+  }
+
+  // Delete the user (cascade will handle project memberships and tasks)
+  await db.delete(authSchema.user).where(eq(authSchema.user.id, parsed.userId));
+
   revalidatePath("/dashboard");
 }
