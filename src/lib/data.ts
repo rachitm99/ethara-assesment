@@ -26,8 +26,13 @@ export async function getAccessibleProjects(userId: string) {
 }
 
 export async function getDashboardData(userId: string) {
+  const userRow = await db.query.user.findFirst({
+    where: eq(authSchema.user.id, userId),
+  });
+
   const projectRows = await getAccessibleProjects(userId);
   const projectIds = projectRows.map((project) => project.id);
+  const adminProjectIds = new Set(projectRows.filter((project) => project.role === "admin").map((project) => project.id));
 
   const taskRows =
     projectIds.length > 0
@@ -49,21 +54,28 @@ export async function getDashboardData(userId: string) {
           .orderBy(desc(tasks.updatedAt))
       : [];
 
-  const totalTasks = taskRows.length;
-  const completedTasks = taskRows.filter((task) => task.status === "done").length;
-  const overdueTasks = taskRows.filter(
+  const visibleTaskRows =
+    userRow?.role === "admin"
+      ? taskRows
+      : taskRows.filter(
+          (task) => task.assignedToId === userId || adminProjectIds.has(task.projectId),
+        );
+
+  const totalTasks = visibleTaskRows.length;
+  const completedTasks = visibleTaskRows.filter((task) => task.status === "done").length;
+  const overdueTasks = visibleTaskRows.filter(
     (task) => task.dueDate && task.dueDate.getTime() < Date.now() && task.status !== "done",
   ).length;
 
-  const upcoming = taskRows.filter(
+  const upcoming = visibleTaskRows.filter(
     (task) => task.status !== "done" && task.dueDate && task.dueDate.getTime() >= Date.now(),
   );
 
-  const assignedTasks = taskRows.filter((task) => task.assignedToId === userId).length;
+  const assignedTasks = visibleTaskRows.filter((task) => task.assignedToId === userId).length;
 
   return {
     projectRows,
-    taskRows,
+    taskRows: visibleTaskRows,
     stats: {
       projects: projectRows.length,
       tasks: totalTasks,
@@ -76,6 +88,10 @@ export async function getDashboardData(userId: string) {
 }
 
 export async function getProjectDetail(projectId: string, userId: string) {
+  const userRow = await db.query.user.findFirst({
+    where: eq(authSchema.user.id, userId),
+  });
+
   const membership = await db.query.projectMembers.findFirst({
     where: and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)),
   });
@@ -91,6 +107,8 @@ export async function getProjectDetail(projectId: string, userId: string) {
   if (!project) {
     return null;
   }
+
+  const canManage = userRow?.role === "admin" || membership.role === "admin";
 
   const members = await db
     .select({
@@ -125,10 +143,15 @@ export async function getProjectDetail(projectId: string, userId: string) {
     .where(eq(tasks.projectId, projectId))
     .orderBy(desc(tasks.updatedAt));
 
+  const visibleTasks = canManage
+    ? projectTasks
+    : projectTasks.filter((task) => task.assignedToId === userId);
+
   return {
     project,
     membership,
     members,
-    tasks: projectTasks,
+    canManage,
+    tasks: visibleTasks,
   };
 }

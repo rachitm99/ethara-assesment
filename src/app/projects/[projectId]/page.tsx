@@ -2,10 +2,7 @@ import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
 import {
-  addMemberAction,
   createTaskAction,
-  removeMemberAction,
-  updateMemberRoleAction,
   updateTaskAssigneeAction,
   updateTaskStatusAction,
 } from "@/app/actions";
@@ -42,8 +39,7 @@ export default async function ProjectDetailPage({ params }: { params: { projectI
     );
   }
 
-  const isGlobalAdmin = (session.user as { role?: string }).role === "admin";
-  const isAdmin = isGlobalAdmin || detail.membership.role === "admin";
+  const isAdmin = detail.canManage;
   const openTasks = detail.tasks.filter((task) => task.status !== "done").length;
   const doneTasks = detail.tasks.filter((task) => task.status === "done").length;
 
@@ -86,81 +82,31 @@ export default async function ProjectDetailPage({ params }: { params: { projectI
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-950">Team members</h2>
-                  <p className="mt-1 text-sm text-slate-500">Admins can add teammates by email.</p>
+                  <p className="mt-1 text-sm text-slate-500">Admins can manage members from the admin page.</p>
                 </div>
+                {isAdmin ? (
+                  <Link
+                    href={`/projects/${detail.project.id}/admin`}
+                    className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Manage team
+                  </Link>
+                ) : null}
               </div>
 
               <div className="mt-5 space-y-3">
                 {detail.members.map((member) => (
-                  <div key={member.userId} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-slate-950">{member.name || member.email}</p>
-                        <p className="text-sm text-slate-500">{member.email}</p>
-                      </div>
-                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        {member.role}
-                      </span>
+                  <div key={member.userId} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div>
+                      <p className="font-medium text-slate-950">{member.name || member.email}</p>
+                      <p className="text-sm text-slate-500">{member.email}</p>
                     </div>
-
-                    {isAdmin ? (
-                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <form action={updateMemberRoleAction} className="flex flex-1 items-center gap-2">
-                          <input type="hidden" name="projectId" value={detail.project.id} />
-                          <input type="hidden" name="userId" value={member.userId} />
-                          <select
-                            name="role"
-                            defaultValue={member.role}
-                            className="min-w-40 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                          >
-                            <option value="member">Member</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                          <button className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Update role</button>
-                        </form>
-
-                        <form action={removeMemberAction}>
-                          <input type="hidden" name="projectId" value={detail.project.id} />
-                          <input type="hidden" name="userId" value={member.userId} />
-                          <button className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700">
-                            Remove
-                          </button>
-                        </form>
-                      </div>
-                    ) : null}
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {member.role}
+                    </span>
                   </div>
                 ))}
               </div>
-
-              {isAdmin ? (
-                <form action={addMemberAction} className="mt-6 space-y-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <input type="hidden" name="projectId" value={detail.project.id} />
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">Member email</label>
-                    <input
-                      name="email"
-                      type="email"
-                      required
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-indigo-400"
-                      placeholder="teammate@company.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">Role</label>
-                    <select
-                      name="role"
-                      defaultValue="member"
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-indigo-400"
-                    >
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                  <button className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white">
-                    Add member
-                  </button>
-                </form>
-              ) : null}
             </div>
 
             {isAdmin ? (
