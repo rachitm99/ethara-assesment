@@ -88,6 +88,18 @@ export async function getDashboardData(userId: string) {
 }
 
 export async function getProjectDetail(projectId: string, userId: string) {
+  if (!projectId) {
+    // Defensive: avoid querying DB with an undefined projectId (observed in some deployments)
+    // Return null so callers render a not-found/forbidden UI instead of crashing.
+    // Log for diagnostics in server logs.
+    try {
+      // eslint-disable-next-line no-console
+      console.warn("getProjectDetail called with empty projectId", { projectId, userId });
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  }
   const userRow = await db.query.user.findFirst({
     where: eq(authSchema.user.id, userId),
   });

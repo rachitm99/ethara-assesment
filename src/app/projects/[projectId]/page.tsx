@@ -23,6 +23,21 @@ function badgeForPriority(priority: string) {
 
 export default async function ProjectDetailPage({ params }: { params: { projectId: string } }) {
   const session = await requireCurrentSession();
+
+  if (!params || !params.projectId) {
+    return (
+      <AppShell active="projects" user={{ name: session.user.name, email: session.user.email }}>
+        <div className="rounded-4xl border border-white/80 bg-white p-8 shadow-sm">
+          <h2 className="text-2xl font-semibold text-slate-950">Invalid project</h2>
+          <p className="mt-2 text-slate-500">Missing project identifier in request.</p>
+          <Link href="/projects" className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white">
+            Back to projects
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
+
   const detail = await getProjectDetail(params.projectId, session.user.id);
 
   if (!detail) {
