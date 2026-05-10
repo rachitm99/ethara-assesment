@@ -11,6 +11,7 @@ import * as authSchema from "@/db/auth-schema";
 import { db } from "@/db";
 import { projectMembers, projects, tasks } from "@/db/schema";
 import { createSlug } from "@/lib/slug";
+import { canManageProject } from "@/lib/rbac";
 import { requireCurrentSession } from "@/lib/session";
 
 const createProjectSchema = z.object({
@@ -28,6 +29,11 @@ const createTaskSchema = z.object({
   assignedToId: z.string().optional().or(z.literal("")),
 });
 
+const updateAssigneeSchema = z.object({
+  taskId: z.string().min(1),
+  assignedToId: z.string().optional().or(z.literal("")),
+});
+
 const addMemberSchema = z.object({
   projectId: z.string().min(1),
   email: z.string().email(),
@@ -40,11 +46,24 @@ const updateTaskSchema = z.object({
 });
 
 async function ensureProjectAdmin(projectId: string, userId: string) {
+  const userRow = await db.query.user.findFirst({
+    where: eq(authSchema.user.id, userId),
+  });
+
   const membership = await db.query.projectMembers.findFirst({
     where: and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)),
   });
 
-  if (!membership || membership.role !== "admin") {
+  if (canManageProject(userRow?.role, membership?.role)) {
+    // Return a synthetic membership to satisfy callers.
+    return membership ?? { projectId, userId, role: "admin", createdAt: new Date() };
+  }
+
+  if (!membership) {
+    throw new Error("You do not have access to this project.");
+  }
+
+  if (membership.role !== "admin") {
     throw new Error("Only project admins can perform this action.");
   }
 
@@ -150,6 +169,19 @@ export async function createTaskAction(formData: FormData) {
 
   await ensureProjectMember(parsed.projectId, session.user.id);
 
+  // If an assignee is provided, only project admins may assign tasks.
+  if (parsed.assignedToId) {
+    await ensureProjectAdmin(parsed.projectId, session.user.id);
+
+    const assigneeMembership = await db.query.projectMembers.findFirst({
+      where: and(eq(projectMembers.projectId, parsed.projectId), eq(projectMembers.userId, parsed.assignedToId)),
+    });
+
+    if (!assigneeMembership) {
+      throw new Error("Assignee must be a member of the project.");
+    }
+  }
+
   const now = new Date();
   const dueDate = parsed.dueDate ? new Date(parsed.dueDate) : null;
 
@@ -168,6 +200,40 @@ export async function createTaskAction(formData: FormData) {
   });
 
   revalidatePath(`/projects/${parsed.projectId}`);
+  revalidatePath("/dashboard");
+}
+
+export async function updateTaskAssigneeAction(formData: FormData) {
+  const session = await requireCurrentSession();
+  const parsed = updateAssigneeSchema.parse({
+    taskId: formData.get("taskId"),
+    assignedToId: formData.get("assignedToId"),
+  });
+
+  const task = await db.query.tasks.findFirst({
+    where: eq(tasks.id, parsed.taskId),
+  });
+
+  if (!task) throw new Error("Task not found.");
+
+  await ensureProjectAdmin(task.projectId, session.user.id);
+
+  if (parsed.assignedToId) {
+    const assigneeMembership = await db.query.projectMembers.findFirst({
+      where: and(eq(projectMembers.projectId, task.projectId), eq(projectMembers.userId, parsed.assignedToId)),
+    });
+
+    if (!assigneeMembership) {
+      throw new Error("Assignee must be a member of the project.");
+    }
+  }
+
+  await db
+    .update(tasks)
+    .set({ assignedToId: parsed.assignedToId || null, updatedAt: new Date() })
+    .where(eq(tasks.id, parsed.taskId));
+
+  revalidatePath(`/projects/${task.projectId}`);
   revalidatePath("/dashboard");
 }
 

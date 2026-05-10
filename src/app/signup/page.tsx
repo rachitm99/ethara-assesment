@@ -17,7 +17,7 @@ export default function SignupPage() {
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             {[
               ["Fast setup", "Email/password authentication with Better Auth"],
-              ["Turso ready", "Designed for the Turso free plan and Vercel deployment"],
+              ["Railway ready", "Designed for the Turso free plan and Railway deployment"],
             ].map(([title, copy]) => (
               <div key={title} className="rounded-3xl border border-white/10 bg-white/5 p-5">
                 <p className="font-medium text-white">{title}</p>

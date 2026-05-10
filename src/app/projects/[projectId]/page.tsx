@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
-import { addMemberAction, createTaskAction, updateTaskStatusAction } from "@/app/actions";
+import { addMemberAction, createTaskAction, updateTaskAssigneeAction, updateTaskStatusAction } from "@/app/actions";
 import { getProjectDetail } from "@/lib/data";
 import { requireCurrentSession } from "@/lib/session";
 
@@ -172,21 +172,23 @@ export default async function ProjectDetailPage({ params }: { params: { projectI
                       className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
                     />
                   </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">Assignee</label>
-                    <select
-                      name="assignedToId"
-                      defaultValue=""
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
-                    >
-                      <option value="">Unassigned</option>
-                      {detail.members.map((member) => (
-                        <option key={member.userId} value={member.userId}>
-                          {member.name || member.email}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {isAdmin ? (
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-slate-700">Assignee</label>
+                      <select
+                        name="assignedToId"
+                        defaultValue=""
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
+                      >
+                        <option value="">Unassigned</option>
+                        {detail.members.map((member) => (
+                          <option key={member.userId} value={member.userId}>
+                            {member.name || member.email}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
                 </div>
                 <button className="w-full rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500">
                   Add task
@@ -215,8 +217,29 @@ export default async function ProjectDetailPage({ params }: { params: { projectI
                         <p className="mt-2 text-sm text-slate-600">{task.description || "No description"}</p>
                         <p className="mt-3 text-xs text-slate-500">
                           {task.dueDate ? `Due ${task.dueDate.toLocaleDateString()}` : "No due date"}
-                          {task.assigneeName ? ` · Assigned to ${task.assigneeName}` : " · Unassigned"}
                         </p>
+                        <div className="mt-2 text-sm text-slate-600">
+                          {isAdmin ? (
+                            <form action={updateTaskAssigneeAction} className="flex items-center gap-2">
+                              <input type="hidden" name="taskId" value={task.id} />
+                              <select
+                                name="assignedToId"
+                                defaultValue={task.assignedToId || ""}
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                              >
+                                <option value="">Unassigned</option>
+                                {detail.members.map((member) => (
+                                  <option key={member.userId} value={member.userId}>
+                                    {member.name || member.email}
+                                  </option>
+                                ))}
+                              </select>
+                              <button className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Save</button>
+                            </form>
+                          ) : (
+                            <p className="text-xs text-slate-500">{task.assigneeName ? `Assigned to ${task.assigneeName}` : "Unassigned"}</p>
+                          )}
+                        </div>
                       </div>
 
                       <form action={updateTaskStatusAction} className="flex min-w-55 gap-2">

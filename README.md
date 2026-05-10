@@ -11,7 +11,7 @@ This app is designed for a job interview assessment and keeps the scope practica
 - Task creation, assignment, priorities, and status tracking
 - Role-based access control with Admin and Member roles
 - Dashboard summary for tasks, progress, and overdue work
-- Clean, modern UI optimized for Vercel deployment
+- Clean, modern UI optimized for Railway deployment
 
 ## Tech Stack
 
@@ -34,6 +34,13 @@ This app is designed for a job interview assessment and keeps the scope practica
 - Auto-assign project creator as Admin
 - Add teammates to a project by email
 - Restrict membership management to Admins
+- Promote a teammate to project Admin when needed
+
+### RBAC Model
+- **Global admin:** tracked on the `user.role` field and allowed to manage any project
+- **Project admin:** tracked on `project_members.role` and allowed to manage that project
+- **Member:** can view the project, create tasks, and update task status
+- Only Admins can assign tasks to project members
 
 ### Tasks
 - Create tasks inside a project
@@ -81,6 +88,12 @@ If you change the auth configuration later, regenerate the auth schema first:
 npm run auth:generate
 ```
 
+To verify the RBAC helpers locally, run the unit test:
+
+```bash
+npm run test:rbac
+```
+
 ## Scripts
 
 - `npm run dev` - start the development server
@@ -93,18 +106,28 @@ npm run auth:generate
 
 ## Deployment
 
-### Vercel
+### Railway
 
 1. Push the repository to GitHub.
-2. Import the repo into Vercel.
-3. Add the environment variables from `.env.example` in the Vercel project settings.
-4. Set `BETTER_AUTH_URL` to your deployed Vercel URL.
-5. Run `npm run db:push` once against your Turso database.
+2. Create a new Railway service from the GitHub repo.
+3. Add the environment variables from `.env.example` in Railway.
+4. Set `BETTER_AUTH_URL` to your Railway public URL, for example `https://your-app.up.railway.app`.
+5. Set `BETTER_AUTH_SECRET` to a strong, unique production secret.
+6. Run `npm run db:push` once against your Turso database.
+7. Deploy and verify sign-in, project creation, task assignment, and task updates.
 
 ### Turso
 
 - Create a Turso database and generate an auth token.
-- Set the resulting `DATABASE_URL` and `DATABASE_AUTH_TOKEN` in Vercel.
+- Set the resulting `DATABASE_URL` and `DATABASE_AUTH_TOKEN` in Railway.
+
+### Production checklist
+
+- `BETTER_AUTH_URL` matches the public Railway URL exactly.
+- `BETTER_AUTH_SECRET` is set and not using the local fallback.
+- `DATABASE_URL` and `DATABASE_AUTH_TOKEN` point to the live Turso database.
+- Migrations have been pushed with `npm run db:push`.
+- Admin/member flows have been tested with two accounts.
 
 ## Project Structure
 
@@ -118,3 +141,4 @@ npm run auth:generate
 - The app is intentionally kept lean for assessment purposes.
 - If you update the Better Auth config or add plugins, regenerate the auth schema and rerun the database migration.
 - The UI is responsive and suitable for a short live demo.
+- RBAC is enforced server-side in the project actions; the UI only hides controls for non-admins.
