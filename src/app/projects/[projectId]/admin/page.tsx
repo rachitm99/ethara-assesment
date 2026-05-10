@@ -5,10 +5,11 @@ import { addMemberAction, removeMemberAction, updateMemberRoleAction } from "@/a
 import { getProjectDetail } from "@/lib/data";
 import { requireCurrentSession } from "@/lib/session";
 
-export default async function ProjectAdminPage({ params }: { params: { projectId: string } }) {
+export default async function ProjectAdminPage({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await params;
   const session = await requireCurrentSession();
 
-  if (!params || !params.projectId) {
+  if (!projectId) {
     return (
       <AppShell active="projects" user={{ name: session.user.name, email: session.user.email }}>
         <div className="rounded-4xl border border-white/80 bg-white p-8 shadow-sm">
@@ -22,7 +23,7 @@ export default async function ProjectAdminPage({ params }: { params: { projectId
     );
   }
 
-  const detail = await getProjectDetail(params.projectId, session.user.id);
+  const detail = await getProjectDetail(projectId, session.user.id);
 
   if (!detail) {
     return (

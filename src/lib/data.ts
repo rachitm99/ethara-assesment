@@ -120,6 +120,16 @@ export async function getProjectDetail(projectId: string, userId: string) {
     return null;
   }
 
+  // Debug logging for RBAC
+  // eslint-disable-next-line no-console
+  console.log("getProjectDetail RBAC check:", {
+    userId,
+    projectId,
+    userRole: userRow?.role,
+    membershipRole: membership.role,
+    userRowId: userRow?.id,
+  });
+
   const canManage = userRow?.role === "admin" || membership.role === "admin";
 
   const members = await db
