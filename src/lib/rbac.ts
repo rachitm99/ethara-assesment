@@ -17,3 +17,12 @@ export function canAccessProject(
 ) {
   return isGlobalAdmin(globalRole) || hasProjectMembership;
 }
+
+export function canUpdateTaskStatus(
+  globalRole: string | null | undefined,
+  projectRole: AccessRole | null | undefined,
+  assigneeId: string | null | undefined,
+  userId: string,
+) {
+  return isGlobalAdmin(globalRole) || projectRole === "admin" || assigneeId === userId;
+}

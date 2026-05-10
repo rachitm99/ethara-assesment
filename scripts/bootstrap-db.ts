@@ -1,8 +1,4 @@
 import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
-
-import { account, session, user, verification } from "./auth-schema";
-import { projectMembers, projects, tasks } from "./schema";
 
 const client = createClient({
   url: process.env.DATABASE_URL ?? "file:./local.db",
@@ -110,35 +106,19 @@ async function ensureUserRoleColumn() {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-
     if (!message.toLowerCase().includes("duplicate column name: role")) {
       throw err;
     }
   }
 }
 
-// Run bootstrap statements but avoid top-level await so tools like drizzle-kit can
-// transpile this file in CommonJS mode. Errors are logged but do not crash the process.
-void (async () => {
-  try {
-    await client.batch(bootstrapStatements.map((statement) => ({ sql: statement })));
-    await ensureUserRoleColumn();
-  } catch (err) {
-    // Non-fatal at build/migration time — log for visibility.
-    console.error("DB bootstrap statements failed:", err);
-  }
-})();
+async function main() {
+  await client.batch(bootstrapStatements.map((sql) => ({ sql })));
+  await ensureUserRoleColumn();
+  console.log("Database bootstrap completed.");
+}
 
-export const schema = {
-  user,
-  session,
-  account,
-  verification,
-  projects,
-  projectMembers,
-  tasks,
-};
-
-export const db = drizzle(client, { schema });
-
-export type Database = typeof db;
+main().catch((err) => {
+  console.error("Database bootstrap failed:", err);
+  process.exitCode = 1;
+});

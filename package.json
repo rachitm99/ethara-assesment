@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:rbac": "node --import tsx --test tests/rbac.test.ts",
+    "db:bootstrap": "tsx scripts/bootstrap-db.ts",
     "auth:generate": "npx auth@latest generate --config src/lib/auth.ts --output src/db/auth-schema.ts --y",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"

@@ -1,7 +1,14 @@
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
-import { addMemberAction, createTaskAction, updateTaskAssigneeAction, updateTaskStatusAction } from "@/app/actions";
+import {
+  addMemberAction,
+  createTaskAction,
+  removeMemberAction,
+  updateMemberRoleAction,
+  updateTaskAssigneeAction,
+  updateTaskStatusAction,
+} from "@/app/actions";
 import { getProjectDetail } from "@/lib/data";
 import { requireCurrentSession } from "@/lib/session";
 
@@ -35,7 +42,8 @@ export default async function ProjectDetailPage({ params }: { params: { projectI
     );
   }
 
-  const isAdmin = detail.membership.role === "admin";
+  const isGlobalAdmin = (session.user as { role?: string }).role === "admin";
+  const isAdmin = isGlobalAdmin || detail.membership.role === "admin";
   const openTasks = detail.tasks.filter((task) => task.status !== "done").length;
   const doneTasks = detail.tasks.filter((task) => task.status === "done").length;
 
@@ -84,14 +92,42 @@ export default async function ProjectDetailPage({ params }: { params: { projectI
 
               <div className="mt-5 space-y-3">
                 {detail.members.map((member) => (
-                  <div key={member.userId} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div>
-                      <p className="font-medium text-slate-950">{member.name || member.email}</p>
-                      <p className="text-sm text-slate-500">{member.email}</p>
+                  <div key={member.userId} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-slate-950">{member.name || member.email}</p>
+                        <p className="text-sm text-slate-500">{member.email}</p>
+                      </div>
+                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {member.role}
+                      </span>
                     </div>
-                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {member.role}
-                    </span>
+
+                    {isAdmin ? (
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <form action={updateMemberRoleAction} className="flex flex-1 items-center gap-2">
+                          <input type="hidden" name="projectId" value={detail.project.id} />
+                          <input type="hidden" name="userId" value={member.userId} />
+                          <select
+                            name="role"
+                            defaultValue={member.role}
+                            className="min-w-40 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                          >
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          <button className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Update role</button>
+                        </form>
+
+                        <form action={removeMemberAction}>
+                          <input type="hidden" name="projectId" value={detail.project.id} />
+                          <input type="hidden" name="userId" value={member.userId} />
+                          <button className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700">
+                            Remove
+                          </button>
+                        </form>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -127,52 +163,52 @@ export default async function ProjectDetailPage({ params }: { params: { projectI
               ) : null}
             </div>
 
-            <div className="rounded-4xl border border-white/80 bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-slate-950">Create task</h2>
-              <p className="mt-1 text-sm text-slate-500">Add work items and assign them to a team member.</p>
+            {isAdmin ? (
+              <div className="rounded-4xl border border-white/80 bg-white p-6 shadow-sm">
+                <h2 className="text-xl font-semibold text-slate-950">Create task</h2>
+                <p className="mt-1 text-sm text-slate-500">Admins can add work items and assign them to a team member.</p>
 
-              <form action={createTaskAction} className="mt-5 space-y-4">
-                <input type="hidden" name="projectId" value={detail.project.id} />
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Task title</label>
-                  <input
-                    name="title"
-                    required
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
-                    placeholder="Review design handoff"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">Description</label>
-                  <textarea
-                    name="description"
-                    rows={3}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
-                    placeholder="Add acceptance criteria or notes"
-                  />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-3">
+                <form action={createTaskAction} className="mt-5 space-y-4">
+                  <input type="hidden" name="projectId" value={detail.project.id} />
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">Priority</label>
-                    <select
-                      name="priority"
-                      defaultValue="medium"
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">Due date</label>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">Task title</label>
                     <input
-                      name="dueDate"
-                      type="date"
+                      name="title"
+                      required
                       className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
+                      placeholder="Review design handoff"
                     />
                   </div>
-                  {isAdmin ? (
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">Description</label>
+                    <textarea
+                      name="description"
+                      rows={3}
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
+                      placeholder="Add acceptance criteria or notes"
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-slate-700">Priority</label>
+                      <select
+                        name="priority"
+                        defaultValue="medium"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-slate-700">Due date</label>
+                      <input
+                        name="dueDate"
+                        type="date"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-indigo-400 focus:bg-white"
+                      />
+                    </div>
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-700">Assignee</label>
                       <select
@@ -188,13 +224,18 @@ export default async function ProjectDetailPage({ params }: { params: { projectI
                         ))}
                       </select>
                     </div>
-                  ) : null}
-                </div>
-                <button className="w-full rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500">
-                  Add task
-                </button>
-              </form>
-            </div>
+                  </div>
+                  <button className="w-full rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500">
+                    Add task
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="rounded-4xl border border-white/80 bg-white p-6 shadow-sm">
+                <h2 className="text-xl font-semibold text-slate-950">Tasks assigned to you</h2>
+                <p className="mt-1 text-sm text-slate-500">You can update the status of tasks assigned to you. Admins manage task creation and assignment.</p>
+              </div>
+            )}
           </div>
 
           <div className="rounded-4xl border border-white/80 bg-white p-6 shadow-sm">
@@ -242,21 +283,27 @@ export default async function ProjectDetailPage({ params }: { params: { projectI
                         </div>
                       </div>
 
-                      <form action={updateTaskStatusAction} className="flex min-w-55 gap-2">
-                        <input type="hidden" name="taskId" value={task.id} />
-                        <select
-                          name="status"
-                          defaultValue={task.status}
-                          className="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
-                        >
-                          <option value="todo">Todo</option>
-                          <option value="in_progress">In progress</option>
-                          <option value="done">Done</option>
-                        </select>
-                        <button className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
-                          Save
-                        </button>
-                      </form>
+                      {isAdmin || task.assignedToId === session.user.id ? (
+                        <form action={updateTaskStatusAction} className="flex min-w-55 gap-2">
+                          <input type="hidden" name="taskId" value={task.id} />
+                          <select
+                            name="status"
+                            defaultValue={task.status}
+                            className="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none"
+                          >
+                            <option value="todo">Todo</option>
+                            <option value="in_progress">In progress</option>
+                            <option value="done">Done</option>
+                          </select>
+                          <button className="rounded-2xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
+                            Save
+                          </button>
+                        </form>
+                      ) : (
+                        <div className="min-w-55 text-right text-xs text-slate-500">
+                          Status can only be updated by the assignee or an admin.
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))

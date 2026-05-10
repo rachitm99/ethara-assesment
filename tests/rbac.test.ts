@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { canAccessProject, canManageProject, isGlobalAdmin } from "../src/lib/rbac";
+import { canAccessProject, canManageProject, canUpdateTaskStatus, isGlobalAdmin } from "../src/lib/rbac";
 
 test("isGlobalAdmin recognizes admin only", () => {
   assert.equal(isGlobalAdmin("admin"), true);
@@ -20,4 +20,11 @@ test("canAccessProject allows global admins or members", () => {
   assert.equal(canAccessProject("admin", false), true);
   assert.equal(canAccessProject("member", true), true);
   assert.equal(canAccessProject("member", false), false);
+});
+
+test("canUpdateTaskStatus allows admins or the assignee", () => {
+  assert.equal(canUpdateTaskStatus("admin", "member", null, "user-1"), true);
+  assert.equal(canUpdateTaskStatus("member", "admin", null, "user-1"), true);
+  assert.equal(canUpdateTaskStatus("member", "member", "user-1", "user-1"), true);
+  assert.equal(canUpdateTaskStatus("member", "member", "user-2", "user-1"), false);
 });
